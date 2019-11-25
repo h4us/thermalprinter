@@ -16,6 +16,8 @@ from .validate import (validate_barcode, validate_barcode_position,
                        validate_charset, validate_chinese_format,
                        validate_codepage)
 
+from subprocess import getoutput
+
 
 class ThermalPrinter(Serial):
     """ I talk to printers. Easy! """
@@ -30,7 +32,7 @@ class ThermalPrinter(Serial):
     __lines = 0
     __feeds = 0
 
-    def __init__(self, port='/dev/ttyAMA0', baudrate=19200, **kwargs):
+    def __init__(self, port='/dev/ttyAMA0', baudrate=19200, rtscts=False, **kwargs):
         """ Print init. """
 
         self.heat_time = int(kwargs.get('heat_time', 80))
@@ -53,10 +55,25 @@ class ThermalPrinter(Serial):
         self._byte_time = 11.0 / float(self._baudrate)
         self._dot_feed_time = 0.0025
         self._dot_print_time = 0.033
+        self._rtscts = rtscts
+
+        # For rasspbery-pi serial option
+        # TODO: More better way..
+        if self._rtscts:
+            getoutput('gpio -g mode 16 alt3')
+            sleep(0.5)
+        # --
 
         # Init the serial
-        super().__init__(port=port, baudrate=self._baudrate)
+        super().__init__(port=port, baudrate=self._baudrate,
+                         rtscts=self._rtscts)
         sleep(0.5)  # Important
+
+        if self._rtscts:
+            self.write(b'\x1d')
+            self.write(b'a')
+            self.write(b' ')
+
         register(self._on_exit)
 
         # Printer settings
